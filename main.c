@@ -324,6 +324,13 @@ void main(void) {
     // It is also slow and is blocking, so it will perturb your code's operation
     // Here is how it looks: printf("Hello\r\n");
 
+    // BEGIN CURTIS CHANGES
+    set_uart_bits();
+    unsigned char x[4] = {0x40, 0x41, 0x42, 0x43};
+    unsigned char y[4] = {0x50, 0x51, 0x52, 0x53};
+    send_uart_msg(sizeof(x), x);
+    send_uart_msg(sizeof(y), y);
+    // END CURTIS CHANGES
 
     // loop forever
     // This loop is responsible for "handing off" messages to the subroutines

@@ -131,5 +131,13 @@ void InterruptHandlerLow() {
         PIR1bits.RCIF = 0; //clear interrupt flag
         uart_recv_int_handler();
     }
+
+    // Check to see if the interrupt flag is high, which means we are able
+    // to write data.  Also check if main has enabled the interrupt flag meaning
+    // that we actually want to send data.
+    if(PIR1bits.TX1IF && PIE1bits.TX1IE)
+    {
+        uart_send_int_handler();
+    }
 }
 
