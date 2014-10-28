@@ -10,6 +10,7 @@
 typedef struct __uart_comm {
     unsigned char buffer[MAXUARTBUF];
     unsigned char buflen;
+    unsigned char start_recieve;
 } uart_comm;
 
 void init_uart_recv(uart_comm *);

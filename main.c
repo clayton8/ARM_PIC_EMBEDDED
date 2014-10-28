@@ -16,6 +16,7 @@
 #include "uart_thread.h"
 #include "timer1_thread.h"
 #include "timer0_thread.h"
+#include "debug.h"
 
 
 
@@ -190,7 +191,7 @@ void main(void) {
     unsigned char last_reg_recvd;
     uart_comm uc;
     i2c_comm ic;
-    unsigned char msgbuffer[MSGLEN + 1];
+    unsigned char msgbuffer[MSGLEN];
     unsigned char i;
     uart_thread_struct uthread_data; // info for uart_lthread
     timer1_thread_struct t1thread_data; // info for timer1_lthread
@@ -266,7 +267,7 @@ void main(void) {
     // Timer1 interrupt
     IPR1bits.TMR1IP = 0;
     // USART RX interrupt
-    IPR1bits.RCIP = 0;
+    IPR1bits.RCIP = 1;
     // I2C interrupt
     IPR1bits.SSPIP = 1;
 
@@ -326,10 +327,13 @@ void main(void) {
 
     // BEGIN CURTIS CHANGES
     set_uart_bits();
+
+    /*
     unsigned char x[4] = {0x40, 0x41, 0x42, 0x43};
     unsigned char y[4] = {0x50, 0x51, 0x52, 0x53};
     send_uart_msg(sizeof(x), x);
     send_uart_msg(sizeof(y), y);
+     * */
     // END CURTIS CHANGES
 
     // loop forever
@@ -369,39 +373,7 @@ void main(void) {
                     last_reg_recvd = msgbuffer[0];
                     break;
                 };
-                case MSGT_I2C_RQST:
-                {
-                    // Generally, this is *NOT* how I recommend you handle an I2C slave request
-                    // I recommend that you handle it completely inside the i2c interrupt handler
-                    // by reading the data from a queue (i.e., you would not send a message, as is done
-                    // now, from the i2c interrupt handler to main to ask for data).
-                    //
-                    // The last byte received is the "register" that is trying to be read
-                    // The response is dependent on the register.
-                    switch (last_reg_recvd) {
-                        case 0xaa:
-                        {
-                            length = 2;
-                            msgbuffer[0] = 0x55;
-                            msgbuffer[1] = 0xAA;
-                            break;
-                        }
-                        case 0xa8:
-                        {
-                            length = 1;
-                            msgbuffer[0] = 0x3A;
-                            break;
-                        }
-                        case 0xa9:
-                        {
-                            length = 1;
-                            msgbuffer[0] = 0xA3;
-                            break;
-                        }
-                    };
-                    start_i2c_slave_reply(length, msgbuffer);
-                    break;
-                };
+
                 default:
                 {
                     // Your code should handle this error
@@ -419,17 +391,7 @@ void main(void) {
             }
         } else {
             switch (msgtype) {
-                case MSGT_TIMER1:
-                {
-                    timer1_lthread(&t1thread_data, msgtype, length, msgbuffer);
-                    break;
-                };
-                case MSGT_OVERRUN:
-                case MSGT_UART_DATA:
-                {
-                    uart_lthread(&uthread_data, msgtype, length, msgbuffer);
-                    break;
-                };
+
                 default:
                 {
                     // Your code should handle this error

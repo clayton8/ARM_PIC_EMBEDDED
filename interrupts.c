@@ -2,6 +2,7 @@
 #include "interrupts.h"
 #include "user_interrupts.h"
 #include "messages.h"
+#include "debug.h"
 
 //----------------------------------------------------------------------------
 // Note: This code for processing interrupts is configured to allow for high and
@@ -84,12 +85,24 @@ void InterruptHandlerHigh() {
     // We need to check the interrupt flag of each enabled high-priority interrupt to
     // see which device generated this interrupt.  Then we can call the correct handler.
 
+
+
     // check to see if we have an I2C interrupt
     if (PIR1bits.SSPIF) {
+        DEBUG_ON(I2C_INT);
         // clear the interrupt flag
         PIR1bits.SSPIF = 0;
         // call the handler
         i2c_int_handler();
+        DEBUG_OFF(I2C_INT);
+    }
+
+    // check to see if we have an interrupt on USART RX
+    if (PIR1bits.RCIF) {
+        DEBUG_ON(UART_INT);
+        PIR1bits.RCIF = 0; //clear interrupt flag
+        uart_recv_int_handler();
+        DEBUG_OFF(UART_INT);
     }
 
     // check to see if we have an interrupt on timer 0
@@ -126,11 +139,7 @@ void InterruptHandlerLow() {
         timer1_int_handler();
     }
 
-    // check to see if we have an interrupt on USART RX
-    if (PIR1bits.RCIF) {
-        PIR1bits.RCIF = 0; //clear interrupt flag
-        uart_recv_int_handler();
-    }
+
 
     // Check to see if the interrupt flag is high, which means we are able
     // to write data.  Also check if main has enabled the interrupt flag meaning

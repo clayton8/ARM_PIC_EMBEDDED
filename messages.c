@@ -21,6 +21,17 @@ void init_queue(msg_queue *qptr) {
     }
 }
 
+void init_queue_s(msg_queue_s *qptr) {
+    unsigned char i;
+
+    qptr->cur_write_ind = 0;
+    qptr->cur_read_ind = 0;
+    for (i = 0; i < MSGQUEUELEN_S; i++) {
+        qptr->queue[i].full = 0;
+    }
+}
+
+
 signed char send_msg(msg_queue *qptr, unsigned char length, unsigned char msgtype, void *data) {
     unsigned char slot;
     //unsigned char *msgptr = (unsigned char *) data;
@@ -60,6 +71,59 @@ signed char send_msg(msg_queue *qptr, unsigned char length, unsigned char msgtyp
     return (MSGSEND_OKAY);
 }
 
+signed char send_msg_s(msg_queue_s *qptr, unsigned char length, unsigned char msgtype, void *data) {
+    unsigned char slot;
+    //unsigned char *msgptr = (unsigned char *) data;
+    msg *qmsg;
+    size_t tlength = length;
+
+#ifdef DEBUG
+    if (length > MSGLEN) {
+        return (MSGBAD_LEN);
+    } else if (length < 0) {
+        return (MSGBAD_LEN);
+    }
+#endif
+
+    slot = qptr->cur_write_ind;
+    qmsg = &(qptr->queue[slot]);
+    // if the slot isn't empty, then we should return
+    if (qmsg->full != 0) {
+        return (MSGQUEUE_FULL);
+    }
+
+    // now fill in the message
+    qmsg->length = length;
+    qmsg->msgtype = msgtype;
+
+    /*
+            for (i=0;i<length;i++) {
+                    qptr->queue[slot].data[i] = msgptr[i];
+            }
+     */
+
+    memcpy(qmsg->data, data, tlength);
+    qptr->cur_write_ind = (qptr->cur_write_ind + 1) % MSGQUEUELEN_S;
+
+
+
+
+    // This *must* be done after the message is completely inserted
+    qmsg->full = 1;
+
+
+    slot = qptr->cur_write_ind;
+    qmsg = &(qptr->queue[slot]);
+    if(qmsg->full != 0)
+    {
+        qptr->cur_read_ind = (qptr->cur_read_ind + 1) % MSGQUEUELEN_S;
+        qmsg->full = 0;
+
+    }
+    return (MSGSEND_OKAY);
+}
+
+
 signed char recv_msg(msg_queue *qptr, unsigned char maxlength, unsigned char *msgtype, void *data) {
     unsigned char slot;
     //unsigned char	i;
@@ -85,6 +149,41 @@ signed char recv_msg(msg_queue *qptr, unsigned char maxlength, unsigned char *ms
         }
          */
         qptr->cur_read_ind = (qptr->cur_read_ind + 1) % MSGQUEUELEN;
+        //retlength = qptr->queue[slot].length;
+        (*msgtype) = qmsg->msgtype;
+        // this must be done after the message is completely extracted
+        qmsg->full = 0;
+        return (tlength);
+    } else {
+        return (MSGQUEUE_EMPTY);
+    }
+}
+
+signed char recv_msg_s(msg_queue_s *qptr, unsigned char maxlength, unsigned char *msgtype, void *data) {
+    unsigned char slot;
+    //unsigned char	i;
+    //unsigned char	retlength;
+    //unsigned char *msg = (unsigned char *) data;
+    msg *qmsg;
+    size_t tlength;
+
+    // check to see if anything is available
+    slot = qptr->cur_read_ind;
+    qmsg = &(qptr->queue[slot]);
+    if (qmsg->full == 1) {
+        // not enough room in the buffer provided
+        if (qmsg->length > maxlength) {
+            return (MSGBUFFER_TOOSMALL);
+        }
+        // now actually copy the message
+        tlength = qmsg->length;
+        memcpy(data, qmsg->data, tlength);
+        /*
+        for (i=0;i<qmsg->length;i++) {
+                ((unsigned char *) data)[i] = qptr->queue[slot].data[i];
+        }
+         */
+        qptr->cur_read_ind = (qptr->cur_read_ind + 1) % MSGQUEUELEN_S;
         //retlength = qptr->queue[slot].length;
         (*msgtype) = qmsg->msgtype;
         // this must be done after the message is completely extracted
@@ -188,6 +287,26 @@ signed char FromMainHigh_recvmsg(unsigned char maxlength, unsigned char *msgtype
 #endif
     return (recv_msg(&FromMainHigh_MQ, maxlength, msgtype, data));
 }
+static msg_queue_s FromMainSensor_MQ;
+
+signed char FromMainSensor_sendmsg(unsigned char length, unsigned char msgtype, void *data) {
+#ifdef DEBUG
+    if (!in_main()) {
+        return (MSG_NOT_IN_MAIN);
+    }
+#endif
+    return (send_msg_s(&FromMainSensor_MQ, length, msgtype, data));
+}
+
+
+signed char FromMainSensor_recvmsg(unsigned char maxlength, unsigned char *msgtype, void *data) {
+#ifdef DEBUG
+    if (!in_low_int()) {
+        return (MSG_NOT_IN_LOW);
+    }
+#endif
+    return (recv_msg_s(&FromMainSensor_MQ, maxlength, msgtype, data));
+}
 
 static unsigned char MQ_Main_Willing_to_block;
 
@@ -197,6 +316,7 @@ void init_queues() {
     init_queue(&ToMainHigh_MQ);
     init_queue(&FromMainLow_MQ);
     init_queue(&FromMainHigh_MQ);
+    init_queue_s(&FromMainSensor_MQ);
 }
 
 void enter_sleep_mode(void) {

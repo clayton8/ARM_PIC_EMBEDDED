@@ -2,10 +2,13 @@
 #define __messages
 
 // The maximum length (in bytes) of a message
-#define MSGLEN 10
+#define MSGLEN 13
 
 // The maximum number of messages in a single queue
 #define MSGQUEUELEN 4
+
+#define MSGQUEUELEN_S 2
+
 
 typedef struct __msg {
     unsigned char full;
@@ -13,6 +16,12 @@ typedef struct __msg {
     unsigned char msgtype;
     unsigned char data[MSGLEN];
 } msg;
+
+typedef struct __msg_queue_s {
+    msg queue[MSGQUEUELEN_S];
+    unsigned char cur_write_ind;
+    unsigned char cur_read_ind;
+} msg_queue_s;
 
 typedef struct __msg_queue {
     msg queue[MSGQUEUELEN];
@@ -77,5 +86,12 @@ signed char FromMainLow_recvmsg(unsigned char,unsigned char *,void *);
 // in the "main()" thread and the receive from the interrupt handlers.
 signed char FromMainHigh_sendmsg(unsigned char,unsigned char,void *);
 signed char FromMainHigh_recvmsg(unsigned char,unsigned char *,void *);
+
+// Queue:
+// The "FromMainLow" queue is a message queue from the "main()"
+// thread to the low priority interrupt handlers.  The send is called
+// in the "main()" thread and the receive from the interrupt handlers.
+signed char FromMainSensor_sendmsg(unsigned char,unsigned char,void *);
+signed char FromMainSensor_recvmsg(unsigned char,unsigned char *,void *);
 
 #endif

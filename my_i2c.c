@@ -5,6 +5,9 @@
 #include <plib/i2c.h>
 #endif
 #include "my_i2c.h"
+#include "debug.h"
+#include "messages.h"
+#include "messageDefs.h"
 
 static i2c_comm *ic_ptr;
 
@@ -51,7 +54,6 @@ unsigned char i2c_master_recv(unsigned char length) {
 }
 
 void start_i2c_slave_reply(unsigned char length, unsigned char *msg) {
-
     for (ic_ptr->outbuflen = 0; ic_ptr->outbuflen < length; ic_ptr->outbuflen++) {
         ic_ptr->outbuffer[ic_ptr->outbuflen] = msg[ic_ptr->outbuflen];
     }
@@ -175,6 +177,7 @@ void i2c_int_handler() {
             }
             case I2C_SLAVE_SEND:
             {
+                DEBUG_ON(I2C_REPLY);
                 if (ic_ptr->outbufind < ic_ptr->outbuflen) {
                     SSPBUF = ic_ptr->outbuffer[ic_ptr->outbufind];
                     ic_ptr->outbufind++;
@@ -183,6 +186,7 @@ void i2c_int_handler() {
                     // we have nothing left to send
                     ic_ptr->status = I2C_IDLE;
                 }
+                DEBUG_OFF(I2C_REPLY);
                 break;
             }
             case I2C_RCV_DATA:
@@ -256,8 +260,69 @@ void i2c_int_handler() {
         ic_ptr->error_count = 0;
     }
     if (msg_to_send) {
+         
+         int length;
+         unsigned char msgtype;
+         unsigned char msgbuffer[MSGLEN];
+
+        // Read sensor data
+        if(ic_ptr->buffer[2] ==0xFD)
+        {
+           length = FromMainSensor_recvmsg(MSGLEN, &msgtype, (void *) msgbuffer);
+           msgbuffer[0] = 0xFF;
+           msgbuffer[1] = ic_ptr->buffer[1];
+           msgbuffer[2] = 0xFD;
+           if(MSGQUEUE_EMPTY == length)
+           {
+                for(int i = 3; i < (SENSOR_RESPONSE_LENGTH-1); i++)
+                {
+
+                    msgbuffer[i] = 1;
+                }
+                
+                length = 12;
+            }
+           msgbuffer[SENSOR_RESPONSE_LENGTH-1] = STOP_BYTE;
+        }
+         // Get Motor Data
+        else if(ic_ptr->buffer[2] == 0xFB)
+        {
+            msgbuffer[0] = START_BYTE;
+            msgbuffer[1] = ic_ptr->buffer[1];
+            msgbuffer[2] = MOTOR_REQUEST_BYTE;
+            for(int i = 3; i < (MOTOR_RESPONSE_LENGTH - 1); i++)
+            {
+                msgbuffer[i] = 2;
+            }
+            msgbuffer[MOTOR_RESPONSE_LENGTH - 1] = STOP_BYTE;
+            length = MOTOR_RESPONSE_LENGTH;
+        }
+         // Motor Command ack
+        else if(ic_ptr->buffer[2] == MOTOR_COMMAND_BYTE)
+        {
+            msgbuffer[0] = START_BYTE;
+            msgbuffer[1] = ic_ptr->buffer[1];
+            msgbuffer[2] = MOTOR_COMMAND_BYTE;
+            msgbuffer[3] = STOP_BYTE;
+            length = 4;
+        }
+        else
+        {
+
+           for(int i = 0; i < MSGLEN; i++)
+            {
+                msgbuffer[i] = 3;
+            }
+            length = 12;
+           msgbuffer[0] = START_BYTE;
+           msgbuffer[1] = 0;
+           msgbuffer[2] = MOTOR_REQUEST_BYTE;
+           msgbuffer[SENSOR_RESPONSE_LENGTH-1] = STOP_BYTE;
+        }
+
+        start_i2c_slave_reply(length, msgbuffer);
         // send to the queue to *ask* for the data to be sent out
-        ToMainHigh_sendmsg(0, MSGT_I2C_RQST, (void *) ic_ptr->buffer);
+        //ToMainHigh_sendmsg(0, MSGT_I2C_RQST, (void *) ic_ptr->buffer);
         msg_to_send = 0;
     }
 }
