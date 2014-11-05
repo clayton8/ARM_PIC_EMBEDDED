@@ -287,6 +287,7 @@ signed char FromMainHigh_recvmsg(unsigned char maxlength, unsigned char *msgtype
 #endif
     return (recv_msg(&FromMainHigh_MQ, maxlength, msgtype, data));
 }
+
 static msg_queue_s FromMainSensor_MQ;
 
 signed char FromMainSensor_sendmsg(unsigned char length, unsigned char msgtype, void *data) {
@@ -308,6 +309,28 @@ signed char FromMainSensor_recvmsg(unsigned char maxlength, unsigned char *msgty
     return (recv_msg_s(&FromMainSensor_MQ, maxlength, msgtype, data));
 }
 
+static msg_queue_s FromMainMotor_MQ;
+
+signed char FromMainMotor_sendmsg(unsigned char length, unsigned char msgtype, void *data) {
+#ifdef DEBUG
+    if (!in_main()) {
+        return (MSG_NOT_IN_MAIN);
+    }
+#endif
+    return (send_msg_s(&FromMainMotor_MQ, length, msgtype, data));
+}
+
+
+signed char FromMainMotor_recvmsg(unsigned char maxlength, unsigned char *msgtype, void *data) {
+#ifdef DEBUG
+    if (!in_low_int()) {
+        return (MSG_NOT_IN_LOW);
+    }
+#endif
+    return (recv_msg_s(&FromMainMotor_MQ, maxlength, msgtype, data));
+}
+
+
 static unsigned char MQ_Main_Willing_to_block;
 
 void init_queues() {
@@ -317,6 +340,7 @@ void init_queues() {
     init_queue(&FromMainLow_MQ);
     init_queue(&FromMainHigh_MQ);
     init_queue_s(&FromMainSensor_MQ);
+    init_queue_s(&FromMainMotor_MQ);
 }
 
 void enter_sleep_mode(void) {

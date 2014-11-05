@@ -6,6 +6,7 @@
 #endif
 #include "my_uart.h"
 #include "debug.h"
+#include "messageDefs.h"
 
 static uart_comm *uc_ptr;
 
@@ -16,10 +17,10 @@ void uart_recv_int_handler() {
 #else
 #ifdef __USE18F46J50
     if (DataRdy1USART()) {
+
         unsigned char check_uart = Read1USART();
-        if(uc_ptr->buflen == 0 && check_uart == 0xFF)
-        {
-            
+        if(uc_ptr->buflen == 0 && check_uart == START_BYTE)
+        {        
             uc_ptr->buffer[uc_ptr->buflen] = Read1USART();
             uc_ptr->start_recieve = 0x1;
             uc_ptr->buflen++;
@@ -40,6 +41,24 @@ void uart_recv_int_handler() {
 
         
         // check if a message should be sent
+        if (uc_ptr->start_recieve &&  uc_ptr->buffer[uc_ptr->buflen - 1] == STOP_BYTE)
+        {
+           uc_ptr->start_recieve = 0x0;
+           uc_ptr->buflen = 0;
+           ToMainLow_sendmsg(uc_ptr->buflen, MSGT_UART_DATA, (void *) uc_ptr->buffer);
+        }
+        else if(uc_ptr->start_recieve && uc_ptr->buflen >= MAXUARTBUF)
+        {
+            uc_ptr->start_recieve = 0x0;
+            uc_ptr->buflen = 0;
+        }
+
+
+
+
+/*
+        else if
+
         if (uc_ptr->buflen == MAXUARTBUF && uc_ptr->buffer[11] == 0xFE && uc_ptr->buffer[0] == 0xFF) {
             uc_ptr->start_recieve = 0x0;
             FromMainSensor_sendmsg(uc_ptr->buflen, MSGT_UART_DATA, (void *) uc_ptr->buffer);
@@ -49,7 +68,7 @@ void uart_recv_int_handler() {
         {
             uc_ptr->start_recieve = 0x0;
             uc_ptr->buflen = 0;
-        }
+        }*/
     }
 #ifdef __USE18F26J50
     if (USART1_Status.OVERRUN_ERROR == 1) {

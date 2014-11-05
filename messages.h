@@ -94,4 +94,7 @@ signed char FromMainHigh_recvmsg(unsigned char,unsigned char *,void *);
 signed char FromMainSensor_sendmsg(unsigned char,unsigned char,void *);
 signed char FromMainSensor_recvmsg(unsigned char,unsigned char *,void *);
 
+
+signed char FromMainMotor_sendmsg(unsigned char,unsigned char,void *);
+signed char FromMainMotor_recvmsg(unsigned char,unsigned char *,void *);
 #endif

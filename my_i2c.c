@@ -266,58 +266,43 @@ void i2c_int_handler() {
          unsigned char msgbuffer[MSGLEN];
 
         // Read sensor data
-        if(ic_ptr->buffer[2] ==0xFD)
+        if(ic_ptr->buffer[2] == SENSOR_BYTE)
         {
            length = FromMainSensor_recvmsg(MSGLEN, &msgtype, (void *) msgbuffer);
-           msgbuffer[0] = 0xFF;
+           msgbuffer[0] = START_BYTE;
            msgbuffer[1] = ic_ptr->buffer[1];
            msgbuffer[2] = 0xFD;
-           if(MSGQUEUE_EMPTY == length)
+           if(SENSOR_RESPONSE_LENGTH != length)
            {
                 for(int i = 3; i < (SENSOR_RESPONSE_LENGTH-1); i++)
                 {
 
-                    msgbuffer[i] = 1;
+                    msgbuffer[i] = 0;
                 }
                 
                 length = 12;
             }
            msgbuffer[SENSOR_RESPONSE_LENGTH-1] = STOP_BYTE;
         }
+
          // Get Motor Data
-        else if(ic_ptr->buffer[2] == 0xFB)
+        else if(ic_ptr->buffer[2] == MOTOR_REQUEST_BYTE)
         {
             msgbuffer[0] = START_BYTE;
             msgbuffer[1] = ic_ptr->buffer[1];
             msgbuffer[2] = MOTOR_REQUEST_BYTE;
-            for(int i = 3; i < (MOTOR_RESPONSE_LENGTH - 1); i++)
+
+            length = FromMainMotor_recvmsg(MSGLEN, &msgtype, (void *) msgbuffer);
+            if(MOTOR_RESPONSE_LENGTH != length)
             {
-                msgbuffer[i] = 2;
+                for(int i = 3; i < (MOTOR_RESPONSE_LENGTH - 2); i++)
+                {
+                    msgbuffer[i] = 0;
+                }
+                length = MOTOR_RESPONSE_LENGTH;
             }
             msgbuffer[MOTOR_RESPONSE_LENGTH - 1] = STOP_BYTE;
-            length = MOTOR_RESPONSE_LENGTH;
-        }
-         // Motor Command ack
-        else if(ic_ptr->buffer[2] == MOTOR_COMMAND_BYTE)
-        {
-            msgbuffer[0] = START_BYTE;
-            msgbuffer[1] = ic_ptr->buffer[1];
-            msgbuffer[2] = MOTOR_COMMAND_BYTE;
-            msgbuffer[3] = STOP_BYTE;
-            length = 4;
-        }
-        else
-        {
-
-           for(int i = 0; i < MSGLEN; i++)
-            {
-                msgbuffer[i] = 3;
-            }
-            length = 12;
-           msgbuffer[0] = START_BYTE;
-           msgbuffer[1] = 0;
-           msgbuffer[2] = MOTOR_REQUEST_BYTE;
-           msgbuffer[SENSOR_RESPONSE_LENGTH-1] = STOP_BYTE;
+            
         }
 
         start_i2c_slave_reply(length, msgbuffer);

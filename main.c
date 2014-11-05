@@ -17,6 +17,7 @@
 #include "timer1_thread.h"
 #include "timer0_thread.h"
 #include "debug.h"
+#include "messageDefs.h"
 
 
 
@@ -366,6 +367,13 @@ void main(void) {
                     break;
                 };
                 case MSGT_I2C_DATA:
+                {
+                    if(msgbuffer[2] == MOTOR_COMMAND_BYTE)
+                    {
+                        send_uart_msg(length, msgbuffer);
+                    }
+                    break;
+                }
                 case MSGT_I2C_DBG:
                 {
                     // Here is where you could handle debugging, if you wanted
@@ -391,6 +399,19 @@ void main(void) {
             }
         } else {
             switch (msgtype) {
+                
+                case MSGT_UART_DATA:
+                {
+                    if (length == 6 && msgbuffer[2] == MOTOR_REQUEST_BYTE)
+                    {
+                        FromMainMotor_sendmsg(length, MOTOR_MSG, (void *) msgbuffer);
+                    }
+                    else if (length == 12 && msgbuffer[2] == SENSOR_BYTE)
+                    {
+                        FromMainSensor_sendmsg(length, SENSOR_MSG, (void *) msgbuffer);
+                    }
+                    break;
+                }
 
                 default:
                 {
